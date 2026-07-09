@@ -1,21 +1,55 @@
-DATA 2026-7-9
+DATA 2026-7-9 常用电灯库函数
   库函数
-rcc.h 中：
+rcc.h 中：（复位和时钟控制）
 void RCC_AHBPeriphClockCmd(uint32_t RCC_AHBPeriph, FunctionalState NewState);
+作用：使能（开启）或失能（关闭）**AHB（高速总线）**上的外设时钟（例如 DMA、SRAM、Flash 等）。
+参数：RCC_AHBPeriph 指定外设；NewState 取值为 ENABLE（开启）或 DISABLE（关闭）
+
 void RCC_APB2PeriphClockCmd(uint32_t RCC_APB2Periph, FunctionalState NewState);
+作用：使能或失能 **APB2（高速外设总线）**上的外设时钟（例如 GPIOA~GPIOG、ADC、USART1、SPI1 等）。
+参数：RCC_APB2Periph 指定外设；NewState 为 ENABLE 或 DISABLE。
+
 void RCC_APB1PeriphClockCmd(uint32_t RCC_APB1Periph, FunctionalState NewState);
+作用：使能或失能 **APB1（低速外设总线）**上的外设时钟（例如 TIM2TIM7、USART25、I2C、CAN 等）。
+参数：RCC_APB1Periph 指定外设；NewState 为 ENABLE 或 DISABLE。
+
 gpio.h中：
 void GPIO_DeInit(GPIO_TypeDef* GPIOx);
+作用：将指定的 GPIO 端口（如 GPIOA, GPIOB 等）的所有寄存器恢复为默认的复位值（相当于把该端口的配置复位）。
+
 void GPIO_AFIODeInit(void);
+作用：将引脚复用功能（AFIO，Alternate Function I/O）相关的寄存器恢复为默认的复位值（比如解除引脚重映射、外部中断线映射等）。
+
 void GPIO_Init(GPIO_TypeDef* GPIOx, GPIO_InitTypeDef* GPIO_InitStruct);
+作用：根据结构体 GPIO_InitStruct 中指定的参数（引脚、模式、速度），初始化指定的 GPIO 端口。这是最常用的 GPIO 配置函数。
+
 void GPIO_StructInit(GPIO_InitTypeDef* GPIO_InitStruct);
+作用：将 GPIO_InitTypeDef 结构体中的各个成员变量填充为默认的复位值。通常在手动修改参数前使用，以防结构体中残留未知的值导致配置错误。
+
 //读取函数
 uint8_t GPIO_ReadInputDataBit(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+作用：读取指定 GPIO 端口的某一个引脚当前的输入电平（高电平返回 1/Bit_SET，低电平返回 0/Bit_RESET）。常用于读取按键、传感器状态等。
+
 uint16_t GPIO_ReadInputData(GPIO_TypeDef* GPIOx);
+作用：读取指定 GPIO 端口所有 16 个引脚当前的输入电平。返回一个 16 位的无符号整数，每一位对应一个引脚的状态（0 或 1）。
+
 uint8_t GPIO_ReadOutputDataBit(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+作用：读取指定 GPIO 端口的某一个引脚当前的输出寄存器状态。注意，这里读取的是单片机正在输出的电平，而不是外部输入进来的电平。
+
 uint16_t GPIO_ReadOutputData(GPIO_TypeDef* GPIOx);
+作用：读取指定 GPIO 端口所有 16 个引脚当前的输出寄存器状态，返回一个 16 位的数值。
+
 //写入函数
 void GPIO_SetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+作用：将指定的引脚设置为高电平（1）。可以同时设置多个引脚（例如 GPIO_Pin_0 | GPIO_Pin_1）。其内部通常是通过向 BSRR 寄存器写入数据来实现的，速度较快。
+
 void GPIO_ResetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+作用：将指定的引脚设置为低电平（0）。同样支持同时操作多个引脚。
+
 void GPIO_WriteBit(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, BitAction BitVal);
+作用：向指定的引脚写入特定的电平值。
+参数：BitVal 可以是 Bit_SET（高电平）或 Bit_RESET（低电平）。适合用于逻辑判断后，根据变量来决定输出高或低。
+
 void GPIO_Write(GPIO_TypeDef* GPIOx, uint16_t PortVal);
+作用：向整个 GPIO 端口的 16 个引脚同时写入 16 位的数值。通常用于并行总线控制（例如控制 LCD 16位数据总线、数码管段选等），可以直接一次性改变整个端口所有引脚的状态。
+
