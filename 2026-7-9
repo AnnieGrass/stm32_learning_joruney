@@ -1,6 +1,6 @@
  常用电灯库函数DATA 2026-7-9 
   库函数
-rcc.h 中：（复位和时钟控制）
+rcc.h 中：（复位和时钟控制） 
 void RCC_AHBPeriphClockCmd(uint32_t RCC_AHBPeriph, FunctionalState NewState);
 作用：使能（开启）或失能（关闭）**AHB（高速总线）**上的外设时钟（例如 DMA、SRAM、Flash 等）。
 参数：RCC_AHBPeriph 指定外设；NewState 取值为 ENABLE（开启）或 DISABLE（关闭）
