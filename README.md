@@ -41,24 +41,45 @@ int main(void)
 
 }
 使用库函数电灯：
-#include "stm32f10x.h"                  // Device header
-
+#include "Delay.h"
 int main(void)
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC,ENABLE);
-	//配置端口模式
+	//开启（使能）GPIOA 端口的时钟:PA0-15
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
 	GPIO_InitTypeDef GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_Init(GPIOC,&GPIO_InitStructure);
-	//设置端口的高低电平
-	GPIO_SetBits(GPIOC,GPIO_Pin_13); //高电平
-	//GPIO_ResetBits(GPIOC,GPIO_Pin_13); //低电平
+	/*
+	{ GPIO_Mode_AIN = 0x0,  //模拟输入
+  GPIO_Mode_IN_FLOATING = 0x04,  //浮空输入
+  GPIO_Mode_IPD = 0x28,  //下拉输入
+	GPIO_Mode_IPU = 0x48,  //上拉输入
+  GPIO_Mode_Out_OD = 0x14,  //开漏输出
+  GPIO_Mode_Out_PP = 0x10,  //推挽输出
+	GPIO_Mode_AF_OD = 0x1C,  //复用开漏
+	GPIO_Mode_AF_PP = 0x18  //服用推挽
+ }GPIOMode_TypeDef;
+	*/
+	GPIO_InitStructure.GPIO_Mode=GPIO_Mode_Out_OD;
+	GPIO_InitStructure.GPIO_Pin=GPIO_Pin_0;
+	GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
+	//将 GPIO_InitTypeDef 结构体中的各个成员变量填充为默认的复位值
+	GPIO_Init(GPIOA, &GPIO_InitStructure);
+	//将指定的引脚设置为低电平（0）。同样支持同时操作多个引脚。
+	//GPIO_ResetBits( GPIOA, GPIO_Pin_0);
+	//将指定的引脚设置为高电平（1）。可以同时设置多个引脚
+	//GPIO_SetBits( GPIOA, GPIO_Pin_0);
+	/* 作用：向指定的引脚写入特定的电平值。
+	@arg Bit_RESET: to clear the port pin
+    @arg Bit_SET: to set the port pin
+   */
+	//GPIO_WriteBit(GPIOA, GPIO_Pin_0, Bit_RESET);
 	while(1)
 	{
-	
+		GPIO_WriteBit(GPIOA, GPIO_Pin_0, Bit_RESET);
+		GPIO_WriteBit(GPIOA, GPIO_Pin_0, (BitAction)0);//强制类型转换
+		Delay_ms(500);
+		GPIO_WriteBit(GPIOA, GPIO_Pin_0, Bit_SET);
+		Delay_ms(500);
 	}
-
 }
+
 -------------------达成成就：电灯大师-------------------
