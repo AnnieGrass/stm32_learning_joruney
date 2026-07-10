@@ -71,4 +71,25 @@ void GPIO_WriteBit(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, BitAction BitVal);
 
 void GPIO_Write(GPIO_TypeDef* GPIOx, uint16_t PortVal);
 作用：向整个 GPIO 端口的 16 个引脚同时写入 16 位的数值。通常用于并行总线控制（例如控制 LCD 16位数据总线、数码管段选等），可以直接一次性改变整个端口所有引脚的状态。
-
+流水灯：
+	while(1)
+	{
+		GPIO_Write(GPIOA, ~0x0001); //0000 0000 0000 0001
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0002); //0000 0000 0000 0010
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0004); //0000 0000 0000 0100
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0008); //0000 0000 0000 1000
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0010); //0000 0000 0001 0000
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0020); //0000 0000 0010 0000
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0040); //0000 0000 0100 0000
+		Delay_ms(500);
+		GPIO_Write(GPIOA, ~0x0080); //0000 0000 1000 0000
+		Delay_ms(500);
+		
+	}
+}
