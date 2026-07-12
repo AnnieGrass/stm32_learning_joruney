@@ -1,1 +1,48 @@
 .c 用来存方内部的文件   .h用来存放被调用需要的头文件。
+// Key.c
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+void Key_Init(void)
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+	
+	GPIO_InitTypeDef GPIO_Initstructure;
+	GPIO_Initstructure.GPIO_Mode=GPIO_Mode_IPU;
+	GPIO_Initstructure.GPIO_Pin=GPIO_Pin_1|GPIO_Pin_11;
+	GPIO_Initstructure.GPIO_Speed=GPIO_Speed_50MHz;
+	GPIO_Init(GPIOB,&GPIO_Initstructure);
+	
+	GPIO_SetBits(GPIOB,GPIO_Pin_1|GPIO_Pin_11);
+
+}
+
+uint8_t Key_GetNum(void)
+{
+	uint8_t KeyNum = 0;
+	if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)
+	{
+		Delay_ms(20);
+/*
+1. 如果不写这个 while 会发生什么？
+单片机（MCU）执行代码的速度非常快（通常是微秒级别），而人类手指按下并松开按键的动作对于单片机来说是非常缓慢的（通常需要 100 毫秒到几百毫秒）。
+如果去掉这个 while 循环，代码流程变成：检测到按下 →延时消抖 →直接返回 KeyNum = 1。
+因为这个函数通常放在 main 函数的 while(1) 主循环中被不断调用，在手指还没来得及抬起的这几百毫秒内，主循环已经执行了成百上千次。每次调用 Key_GetNum 都会判定按键已按下并返回 1。这会导致：
+如果你用按键来翻转 LED 状态（比如按一下亮，再按一下灭），在按下按键的瞬间，LED 会以极快的速度不停地“亮-灭-亮-灭”翻转。
+当你松开手时，LED 的最终状态是随机的，取决于你松手的那一微秒它刚好运行到了亮还是灭。
+*/
+		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)
+		{
+			Delay_ms(20);
+			KeyNum = 1;
+		}
+	}
+		if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)
+	{
+		Delay_ms(20);
+		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)
+		{
+			Delay_ms(20);
+			KeyNum = 2;
+		}
+	}
+	return KeyNum;
