@@ -1,0 +1,39 @@
+//.c
+#include "stm32f10x.h" // Device header
+
+void lighesensor_Init(void)
+{
+RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+
+GPIO_InitTypeDef GPIO_Initstructure;
+GPIO_Initstructure.GPIO_Mode=GPIO_Mode_IPU;
+GPIO_Initstructure.GPIO_Pin=GPIO_Pin_13;
+GPIO_Initstructure.GPIO_Speed=GPIO_Speed_50MHz;
+GPIO_Init(GPIOB,&GPIO_Initstructure);
+}
+
+uint8_t lightsensor_get(void){
+
+return GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_13);
+}
+//.h
+#ifndef __LIGENTSENSOR_H
+#define __LIGENTSENSOR_H
+
+void lighesensor_Init(void);
+uint8_t lightsensor_get(void);
+
+#endif
+第一层面：编译时，头文件卫士（#ifndef）如何运行？
+在电脑上点击“编译（Compile）”按钮时，编译器会进行预处理。它的运行逻辑就像是编译器在进行一场“通关检查”：
+假设你的项目里有 main.c 和 hardware.c，它们都通过 #include "key.h" 引入了同一个头文件：
+第一次遇到 key.h 时：
+编译器读取到第一行：#ifndef __KEY_H（译：如果没有定义 __KEY_H 吗？）
+编译器心想：“确实还没有定义过这个名字。” -> 检查通过，允许进入。
+编译器读取到第二行：#define __KEY_H（译：那我现在立刻定义一个 __KEY_H）。
+编译器继续向下读取，把你的函数声明（如 void Key_Init(void);）等内容打包带走，直到读到最后的 #endif。
+在同一个编译过程中，第二次遇到 key.h 时（比如在另一个文件里被间接引入）：
+编译器再次读取到第一行：#ifndef __KEY_H（译：如果没有定义 __KEY_H 吗？）
+编译器心想：“不对，刚才我已经定义过 __KEY_H 了！” -> 检查不通过，拒绝进入。
+编译器直接跳过中间所有的代码，直接飞跃到最末尾的 #endif。
+结果： 里面的函数声明只会被读取一次，成功避免了“重复定义”的编译错误。
