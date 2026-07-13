@@ -53,11 +53,11 @@ uint16_t GPIO_ReadOutputData(GPIO_TypeDef* GPIOx);
 
 //写入函数
 void GPIO_SetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
-eg:	GPIO_ResetBits( GPIOA, GPIO_Pin_0);
+eg:	GPIO_SetBits( GPIOA, GPIO_Pin_0);
 作用：将指定的引脚设置为高电平（1）。可以同时设置多个引脚。其内部通常是通过向 BSRR 寄存器写入数据来实现的，速度较快。
 
 void GPIO_ResetBits(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
-eg:GPIO_SetBits( GPIOA, GPIO_Pin_0);
+eg:GPIO_RestBits( GPIOA, GPIO_Pin_0);
 作用：将指定的引脚设置为低电平（0）。同样支持同时操作多个引脚。
 
 void GPIO_WriteBit(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, BitAction BitVal);
