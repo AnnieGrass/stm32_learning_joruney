@@ -30,22 +30,20 @@ uint8_t Key_GetNum(void)
 如果你用按键来翻转 LED 状态（比如按一下亮，再按一下灭），在按下按键的瞬间，LED 会以极快的速度不停地“亮-灭-亮-灭”翻转。
 当你松开手时，LED 的最终状态是随机的，取决于你松手的那一微秒它刚好运行到了亮还是灭。
 */
-		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)
-		{
-			Delay_ms(20);
-			KeyNum = 1;
-		}
+		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0);  //这里的“；”
+		Delay_ms(20);
+		KeyNum = 1;
 	}
 		if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)
 	{
 		Delay_ms(20);
-		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0)
-		{
-			Delay_ms(20);
-			KeyNum = 2;
-		}
+		while(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_11)==0);
+		Delay_ms(20);
+		KeyNum = 2;
 	}
 	return KeyNum;
+
+}
 //LED.c 读取输出，进行反转
 void LED1_Turn(void)
 {
