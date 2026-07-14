@@ -1,0 +1,52 @@
+//main.c
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+#include "OLED.h"
+
+
+
+int main(void)
+{
+	OLED_Init();
+	//OLED_ShowChar(1, 1, 'A');
+	OLED_ShowString(1, 1, "The Shy nb");
+	OLED_ShowString(2, 1, " A  bin qu");
+	//无符号十进制，6位就会在前面补0，4位会删掉高位
+	//OLED_ShowNum(3, 1, 12345, 5);
+	//OLED_ShowSignedNum(3, 1,-66,2); //显示符号，2位
+	//OLED_ShowHexNum(3, 1,0xAA55, 4); //显示16进制数
+	//因为c语言不能直接写2进制数，所以这里用16进制代替
+	//OLED_ShowBinNum(4, 1, 0xAA55, 16); 
+	//OLED_Clear();
+	 // 第1行，从第1列开始，一个字一个字地画出来
+	OLED_ShowChinese(3, 1, 0);   // 显示“李”（索引0）
+	OLED_ShowChinese(3, 3, 1);   // 显示“科”（索引1）
+	OLED_ShowChinese(3, 5, 2);   // 显示“萌”（索引2）
+	OLED_ShowChinese(3, 7, 3);   // 显示“牛”（索引3）
+	//OLED_ShowChinese(3, 9, 4);   // 显示“逼”（索引4）
+	OLED_ShowChar(3, 9, '!');   // 在第11列显示感叹号
+	OLED_Clear();
+		while(1)
+		{
+			
+			
+		}
+
+}
+
+//OLED.h
+#ifndef __OLED_H
+#define __OLED_H
+
+void OLED_Init(void);
+void OLED_Clear(void);
+void OLED_ShowChar(uint8_t Line, uint8_t Column, char Char);
+void OLED_ShowString(uint8_t Line, uint8_t Column, char *String);
+void OLED_ShowNum(uint8_t Line, uint8_t Column, uint32_t Number, uint8_t Length);
+void OLED_ShowSignedNum(uint8_t Line, uint8_t Column, int32_t Number, uint8_t Length);
+void OLED_ShowHexNum(uint8_t Line, uint8_t Column, uint32_t Number, uint8_t Length);
+void OLED_ShowBinNum(uint8_t Line, uint8_t Column, uint32_t Number, uint8_t Length);
+void OLED_ShowChinese(uint8_t Line, uint8_t Column, uint8_t Index); //娱乐
+
+#endif
+//OLED.c  OLED.Font.h
