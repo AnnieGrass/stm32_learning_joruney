@@ -112,6 +112,8 @@ int main(void)
 -----最终的.c文件------------
 #include "stm32f10x.h"
 
+uint16_t CountSensor_Count;
+
 void CountSensor_Init(void)
 {
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
@@ -129,7 +131,7 @@ void CountSensor_Init(void)
 	EXTI_InitStructure.EXTI_Line=EXTI_Line14;
 	EXTI_InitStructure.EXTI_LineCmd=ENABLE;
 	EXTI_InitStructure.EXTI_Mode=EXTI_Mode_Interrupt;
-	EXTI_InitStructure.EXTI_Trigger=EXTI_Trigger_Falling;
+	EXTI_InitStructure.EXTI_Trigger=EXTI_Trigger_Falling;//修改这里
 	EXTI_Init(&EXTI_InitStructure);
 	
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
@@ -142,3 +144,42 @@ void CountSensor_Init(void)
 	NVIC_Init(&NVIC_InitStructure);
 	
 }
+
+uint16_t CountSensor_Get(void)
+{
+	return CountSensor_Count;
+}
+
+//中断函数的名字都是固定的，在start/startup中可以找到
+void EXTI15_10_IRQHandler(void) //中断函数不需要调用，自动执行
+{   //  * @retval The new state of EXTI_Line (SET or RESET).
+	if(EXTI_GetITStatus(EXTI_Line14)==SET)//看EXTI_Line14中断标志位是否为1
+	{
+		CountSensor_Count ++;
+		EXTI_ClearITPendingBit(EXTI_Line14);//清除中断标志位
+	}
+
+}
+----------main---------
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+#include "OLED.h"
+#include "CountSensor.h"
+
+
+
+int main(void)
+{
+	OLED_Init();
+	CountSensor_Init();
+	OLED_ShowString(1, 1, "Count:");
+
+	//OLED_Clear();
+	while(1)
+	{
+		OLED_ShowNum(1,7,CountSensor_Get(),5);
+		
+	}
+
+}
+
