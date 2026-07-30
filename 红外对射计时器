@@ -1,0 +1,111 @@
+时钟、GPIO、AFIO、EXTI、NVIC,按顺序来
+void CountSensor_Init(void)
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+ 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
+ 	GPIO_Init(GPIOB, &GPIO_InitStructure);
+}
+一、AFIO 是干什么的？（核心三大作用）
+STM32 的很多引脚是“一脚多用”的。AFIO 主要负责以下 三种 特殊的功能调度：
+1. 外部中断（EXTI）的映射
+STM32 的外部中断线（如 EXTI0）可以连接到 PA0、PB0、PC0 等等。但同时只能连一个（例如选了 PB0 就不能同时用 PA0 触发 EXTI0）。
+AFIO 的作用：负责选择“到底把哪个 GPIO 引脚接到外部中断线上”。
+代码特征：当你使用 GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource0); 时，必须开启 AFIO 时钟。
+2. 引脚重映射（Pin Remap）
+某些外设（如串口 USART1、定时器 TIM3）默认在特定的引脚上（比如 USART1 默认在 PA9/PA10）。但如果你的 PCB 板布线不方便，想把 USART1 挪到 PB6/PB7 上使用，这就是“重映射”。
+AFIO 的作用：负责把外设的内部信号“重定向”绑定到新的 GPIO 引脚上。
+代码特征：当你使用 GPIO_PinRemapConfig(...) 时，必须开启 AFIO 时钟。
+3. 关闭 JTAG/SWD 调试引脚（释放 GPIO）
+STM32 上电默认会把 PA13, PA14, PA15, PB3, PB4 这 5 个引脚作为 JTAG/SWD 仿真器调试接口。
+如果你想把 PB3 或 PB4 当作普通的 GPIO（例如点亮 LED 或读取按键），就需要关闭 JTAG 功能。
+AFIO 的作用：关闭调试功能，把这些引脚恢复为普通 GPIO。
+代码特征：调用 GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE) 时，必须开启 AFIO 时钟。
+二、常见误区：默认使用外设复用需要开 AFIO 吗？
+不需要！
+场景 A：你使用 USART1，并且使用默认引脚（PA9 为 TX，PA10 为 RX）。
+只需要开启 RCC_APB2Periph_GPIOA 和 RCC_APB2Periph_USART1 的时钟。
+不需要开启 AFIO 时钟！
+场景 B：你使用 USART1，但你想重映射到 PB6/PB7。
+必须开启 RCC_APB2Periph_GPIOB、RCC_APB2Periph_USART1 以及 RCC_APB2Periph_AFIO 的时钟。
+
+void GPIO_AFIODeInit(void);  复位AFIO
+void GPIO_PinRemapConfig(uint32_t GPIO_Remap, FunctionalState NewState);
+函数 1：GPIO_PinRemapConfig —— 引脚重映射 / 释放调试脚
+1. 作用
+用于修改硬件外设的默认引脚绑定，把外设信号挪到别的引脚上（重映射），或者关闭 JTAG/SWD 调试引脚，把调试引脚释放出来当作普通 GPIO 使用。
+2. 参数讲解
+GPIO_Remap：要重映射的外设或功能选项（在库函数宏定义里找）。
+NewState：ENABLE（开启重映射） 或 DISABLE（恢复默认绑定）。
+3. 常见实用场景与代码示例
+USART1 的默认引脚是 PA9(TX) 和 PA10(RX)。如果 PCB 走线不方便，想换到 PB6(TX) 和 PB7(RX)：
+// 1. 开启 GPIOB、USART1 和 AFIO 的时钟
+RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | RCC_APB2Periph_USART1 | RCC_APB2Periph_AFIO, ENABLE);
+// 2. 开启 USART1 的重映射功能
+GPIO_PinRemapConfig(GPIO_Remap_USART1, ENABLE);
+// 3. 接下来配置 PB6 和 PB7 即可，PA9/PA10 就不再是串口了
+void GPIO_EXTILineConfig(uint8_t GPIO_PortSource, uint8_t GPIO_PinSource);
+1. 作用
+用于把具体的物理 GPIO 引脚路由连接到系统的外部中断线（EXTI Line）上。
+2. 原理解析（关键理解）
+STM32 的外部中断线有 16 条（Line0 ~ Line15）。
+Line0 对应编号为 0 的所有引脚：PA0、PB0、PC0、PD0...
+Line1 对应编号为 1 的所有引脚：PA1、PB1、PC1、PD1...
+但是，同一时间 Line0 只能选择连接其中的一个引脚（比如选了 PB0，PA0 就不能触发 EXTI0 中断了）。
+GPIO_EXTILineConfig 就是用来“多选一”的选择开关！
+3. 参数讲解
+GPIO_PortSource：选择 GPIO 组，如 GPIO_PortSourceGPIOA、GPIO_PortSourceGPIOB 等。
+GPIO_PinSource：选择具体的引脚编号，如 GPIO_PinSource0 ~ GPIO_PinSource15。
+4. 代码示例（把 PB0 配置为外部中断源）
+// 1. 使能 GPIOB 和 AFIO 时钟
+RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB | RCC_APB2Periph_AFIO, ENABLE);
+// 2. 将 EXTI Line0 绑定到 GPIOB 的 Pin0 上 (即 PB0 映射到 EXTI0)
+GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource0);
+// 3. 接下来再去初始化 EXTI 和 NVIC（中断向量控制器）
+exti所有库函数：
+void EXTI_DeInit(void);
+void EXTI_Init(EXTI_InitTypeDef* EXTI_InitStruct);
+void EXTI_StructInit(EXTI_InitTypeDef* EXTI_InitStruct);
+void EXTI_GenerateSWInterrupt(uint32_t EXTI_Line); //软件出发外部中断
+//外设收到数据，会置标志位，这些标志位放在状态寄存器，当程序想要看这些标志位时，就可以用到下面四个函数
+FlagStatus EXTI_GetFlagStatus(uint32_t EXTI_Line); //获取指定的标志位是否置1
+void EXTI_ClearFlag(uint32_t EXTI_Line);
+//紧急的标志位置1后会触发中断，在中断函数里，如果要查看和清楚标志位可以用到下面两个函数
+ITStatus EXTI_GetITStatus(uint32_t EXTI_Line);//获取中断标志位是否被置1
+void EXTI_ClearITPendingBit(uint32_t EXTI_Line);
+
+void NVIC_PriorityGroupConfig(uint32_t NVIC_PriorityGroup);
+这个函数是 STM32 中用来**设置“中断优先级分组”**的函数。
+简单来说，它的作用就是给整个系统的中断定下一个“规则”：决定“抢占优先级”和“响应优先级”各占多少比重。
+ 也不能打断 A。
+⚠️ 记住黄金法则：数字越小，优先级越高！（0 是最高优先级）
+二、5 种分组方式（参数怎么选？）
+NVIC_PriorityGroupConfig 函数的作用，就是决定这 4 个 Bit 怎么分配给“抢占优先级”和“响应优先级”。共有 5 种分组可选：
+参数选项	抢占优先级位数	响应优先级位数	抢占优先级范围	响应优先级范围	适用场景
+NVIC_PriorityGroup_0	0 bit	4 bit	无（全为0）	0 ~ 15	不需要中断嵌套
+NVIC_PriorityGroup_1	1 bit	3 bit	0 ~ 1	0 ~ 7	需要少量嵌套
+NVIC_PriorityGroup_2 (最常用)	2 bit	2 bit	0 ~ 3	0 ~ 3	均衡型，绝大多数项目选这个！
+NVIC_PriorityGroup_3	3 bit	1 bit	0 ~ 7	0 ~ 1	需要大量嵌套
+NVIC_PriorityGroup_4	4 bit	0 bit	0 ~ 15	无（全为0）	纯靠抢占，取消响应优先级
+三、代码使用示例
+通常在 main() 函数的最开头调用这个函数：
+int main(void)
+{
+    // 1. 设置优先级分组为 Group 2 (2位抢占，2位响应)
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+    
+    // 2. 接下来配置具体的某个中断（比如串口1中断）
+    NVIC_InitTypeDef NVIC_InitStructure;
+    NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1; // 抢占优先级 1 (范围 0~3)
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 2;        // 响应优先级 2 (范围 0~3)
+    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+    
+    while(1) {
+    }
+}
