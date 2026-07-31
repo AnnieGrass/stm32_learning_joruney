@@ -1,0 +1,136 @@
+问题一：为什么有的可以写成按位或（|），有的必须分开写一遍？
+核心原因在于：参数是“按位掩码（Bitmask）”还是“编号/索引（Index/Value）”。
+1. 可以用按位或 | 的情况（如 GPIO_Init 和 EXTI_Init）
+原理：这些函数的参数代表的是寄存器的某一位（Bit）。
+例如：
+GPIO_Pin_0 的宏定义实际是 0x0001（二进制 0000 0000 0000 0001）
+GPIO_Pin_1 的宏定义实际是 0x0002（二进制 0000 0000 0000 0010）
+当你写 GPIO_Pin_0 | GPIO_Pin_1 时，计算结果是 0x0003（二进制 0000 0000 0000 0011）。
+结果：库函数拿到 0x0003 后，可以通过位运算同时开启 Pin 0 和 Pin 1。只要这两个引脚的配置参数（比如模式 GPIO_Mode_IPU、速度）完全相同，
+就可以合并在一行写。EXTI_Line0 | EXTI_Line1 同理。
+2. 必须分开写的情况（如 GPIO_EXTILineConfig 和 NVIC_Init）
+原理：它的第二个参数 GPIO_PinSourceX 表示的是引脚的编号（索引），而不是按位掩码！
+例如：
+GPIO_PinSource0 的定义是 0x00（数值 0）
+GPIO_PinSource1 的定义是 0x01（数值 1）
+如果用了 |：GPIO_PinSource0 | GPIO_PinSource1 的结果是 0x00 | 0x01 = 0x01。
+后果：代码不会报错，但实际上只配置了 Pin 1，Pin 0 的中断映射完全没有生效！所以必须拆成两行分别配置。
+原因一（通道编号非掩码）：NVIC_IRQChannel 代表的是中断通道的中断号（例如 EXTI0_IRQn 是 6，EXTI1_IRQn 是 7）。如果用 6 | 7 结果是 7，
+相当于只配置了 EXTI1。
+原因二（属性不同）：NVIC_Init 每次配置的是某一个特定中断通道的抢占优先级和响应优先级。即使优先级设置一样，由于中断通道不同，也需要分
+别传参给 NVIC_Init 执行初始化。
+------.c-----
+整个旋转编码器外部中断计次的过程，可以分为**【配置初始化阶段】和【硬件触发与执行阶段】**两大步：
+第一阶段：配置初始化（你代码里在做的事）
+第 1 步：开启时钟（开电源）
+开启 GPIOB 的时钟（给 PB0、PB1 通电）。
+开启 AFIO 的时钟（给引脚重映射/中断选择器通电）。
+第 2 步：配置 GPIO 引脚
+将 PB0 和 PB1 配置为 上拉输入（GPIO_Mode_IPU），保证默认状态下引脚是高电平，当编码器旋转时拉低引脚。
+第 3 步：配置 AFIO，进行引脚映射（选路）
+使用 GPIO_EXTILineConfig，把 PB0 绑定到 EXTI0（外部中断线0），把 PB1 绑定到 EXTI1（外部中断线1）。
+第 4 步：配置 EXTI 外设（检测规则）
+指定中断线 EXTI_Line0 和 EXTI_Line1。
+设置模式为中断模式（EXTI_Mode_Interrupt）。
+设置触发方式为下降沿触发（EXTI_Trigger_Falling，即引脚从高电平变成低电平的那一瞬间产生信号）。
+使能（开启）这两条 EXTI 线。
+第 5 步：配置 NVIC 控制器（总指挥部）
+设置中断优先级分组（比如 Group 2）。
+配置 EXTI0_IRQn 通道：分配抢占优先级和响应优先级，并使能 NVIC 中的该中断通道。
+配置 EXTI1_IRQn 通道：分配抢占优先级和响应优先级，并使能 NVIC 中的该中断通道。
+#include "stm32f10x.h" 
+
+int16_t Encoder_Count;
+
+void Encoder_Init(void)
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
+
+	GPIO_InitTypeDef GPIO_InitStructure;
+ 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
+ 	GPIO_Init(GPIOB, &GPIO_InitStructure);
+
+	GPIO_EXTILineConfig( GPIO_PortSourceGPIOB, GPIO_PinSource0);
+	GPIO_EXTILineConfig( GPIO_PortSourceGPIOB, GPIO_PinSource1);
+	
+	EXTI_InitTypeDef EXTI_InitStructure;
+	EXTI_InitStructure.EXTI_Line=EXTI_Line0|EXTI_Line1;
+	EXTI_InitStructure.EXTI_LineCmd=ENABLE;
+	EXTI_InitStructure.EXTI_Mode=EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger=EXTI_Trigger_Falling;//修改这里
+	EXTI_Init(&EXTI_InitStructure);
+	
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+	
+	NVIC_InitTypeDef NVIC_InitStructure;
+ 	NVIC_InitStructure.NVIC_IRQChannel=EXTI0_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelCmd=ENABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority=1;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	NVIC_InitStructure.NVIC_IRQChannel=EXTI1_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelCmd=ENABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=1;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority=2;
+	NVIC_Init(&NVIC_InitStructure);
+	
+}
+
+int16_t Encoder_Get(void)
+{
+	int16_t Tepm;
+	Tepm = Encoder_Count;
+	Encoder_Count=0;
+	return Tepm;
+}
+
+//如果用的是9-5；15-10的中断，就只能用一个中断函数
+void EXTI0_IRQHandler(void)
+{
+	if(EXTI_GetITStatus(EXTI_Line0)==SET)
+	{
+		if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_1)==0)
+		{
+			Encoder_Count--;
+		}
+		EXTI_ClearITPendingBit(EXTI_Line0);
+	}
+}
+
+void EXTI1_IRQHandler(void)
+{
+	if(EXTI_GetITStatus(EXTI_Line1)==SET)
+	{
+		if(GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_0)==0)
+		{
+			Encoder_Count++;
+		}
+		EXTI_ClearITPendingBit(EXTI_Line1);
+	}
+}
+----------main-----
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+#include "OLED.h"
+#include "CountSensor.h"
+#include "Encoder.h"
+
+int16_t Num;
+
+int main(void)
+{
+	OLED_Init();
+	Encoder_Init();
+	OLED_ShowString(1, 1, "Num:");
+	//OLED_Clear();
+	while(1)
+	{
+		Num+=Encoder_Get();
+		OLED_ShowSignedNum(1,5,Num,5);
+	}
+
+}
