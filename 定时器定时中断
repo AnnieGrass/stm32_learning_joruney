@@ -89,6 +89,9 @@ PSC 设得非常大（比如 7199）：
 --------.c---------
 #include "stm32f10x.h"                  // Device header
 
+
+extern uint16_t Num; //声明别的文件已经定义
+
 void Timer_Init(void)
 {
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2,ENABLE);
@@ -113,6 +116,7 @@ void Timer_Init(void)
 	TIM_TimeBaseInitStructure.TIM_RepetitionCounter=0;
 	TIM_TimeBaseInit(TIM2,&TIM_TimeBaseInitStructure);//时基单元初始化
 	
+	TIM_ClearFlag(TIM2,TIM_FLAG_Update); //解决开始显示就是1而不是0的问题
 	TIM_ITConfig(TIM2,TIM_IT_Update,ENABLE );//使能中断输出信号
 	
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
@@ -131,9 +135,44 @@ void TIM2_IRQHandler(void)
 {
 	if(TIM_GetITStatus(TIM2,TIM_IT_Update)==SET)
 	{
-		
+		Num++;
 		TIM_ClearITPendingBit(TIM2,TIM_IT_Update);
 	}
 }
+-----------main------
+#include "stm32f10x.h"                  // Device header
+#include "Delay.h"
+#include "OLED.h"
+#include "Timer.h"
+
+uint16_t Num;
+
+int main(void)
+{
+	OLED_Init();
+	Timer_Init();
+
+	OLED_ShowString(1, 1, "Num:");
+
+	//OLED_Clear();
+		while(1)
+		{
+			OLED_ShowNum(1,5,Num,5);
+			
+		}
+
+}
+
+/*
+void TIM2_IRQHandler(void)
+{
+	if(TIM_GetITStatus(TIM2,TIM_IT_Update)==SET)
+	{
+		Num++;
+		TIM_ClearITPendingBit(TIM2,TIM_IT_Update);
+	}
+}
+*/
+
 
 
