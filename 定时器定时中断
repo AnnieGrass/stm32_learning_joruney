@@ -5,14 +5,135 @@ void TIM_TimeBaseStructInit(TIM_TimeBaseInitTypeDef* TIM_TimeBaseInitStruct);
 void TIM_Cmd(TIM_TypeDef* TIMx, FunctionalState NewState);//使能计数器的cmd
 void TIM_ITConfig(TIM_TypeDef* TIMx, uint16_t TIM_IT, FunctionalState NewState);//使能中断输出信号
 //时基单元的选择部分
-void TIM_InternalClockConfig(TIM_TypeDef* TIMx);
-void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource);
-void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_TIxExternalCLKSource,
+void TIM_InternalClockConfig(TIM_TypeDef* TIMx);//选择内部时钟
+void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource);//选择ITRx其他定时器的时钟
+void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_TIxExternalCLKSource,/选择ITRx捕获通道的时钟
                                 uint16_t TIM_ICPolarity, uint16_t ICFilter);
 void TIM_ETRClockMode1Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity,
-                             uint16_t ExtTRGFilter);
+                             uint16_t ExtTRGFilter);             //选择ETR通过外部时钟模式1输入的时钟
 void TIM_ETRClockMode2Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, 
                              uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter);
 void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity,
-                   uint16_t ExtTRGFilter);
+                   uint16_t ExtTRGFilter);       //单独用来配置ETR引脚的各个参数
+--
+void TIM_PrescalerConfig(TIM_TypeDef* TIMx, uint16_t Prescaler, uint16_t TIM_PSCReloadMode); //单独写预分频值函数
+void TIM_CounterModeConfig(TIM_TypeDef* TIMx, uint16_t TIM_CounterMode);  //选择计数器的计数模式
+void TIM_ARRPreloadConfig(TIM_TypeDef* TIMx, FunctionalState NewState);  //自动重装器预装功能配置
+void TIM_SetCounter(TIM_TypeDef* TIMx, uint16_t Counter);  //给计数器写一个值
+void TIM_SetAutoreload(TIM_TypeDef* TIMx, uint16_t Autoreload);  //给自动重装器写一个值
+uint16_t TIM_GetCounter(TIM_TypeDef* TIMx);  //获得当前计数器的值
+uint16_t TIM_GetPrescaler(TIM_TypeDef* TIMx);  //获得当前预分频器的值
+//获取、清楚标志位
+FlagStatus TIM_GetFlagStatus(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);
+void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG);
+ITStatus TIM_GetITStatus(TIM_TypeDef* TIMx, uint16_t TIM_IT);
+void TIM_ClearITPendingBit(TIM_TypeDef* TIMx, uint16_t TIM_IT);
+--------------------------------
+在 STM32 中，ETR 是 External Trigger Input 的缩写，即外部触发输入。
+它是 STM32 定时器（TIM） 的一个硬件引脚/通路，专门用来接收芯片外部的脉冲信号，并将其作为定时器的时钟源或触发源。
+一、ETR 的主要作用
+在定时器中，ETR 主要有两种用途：
+作为外部时钟源（外部时钟模式 2）
+原理：正常的定时器使用的是芯片内部时钟（如 APB 总线时钟），而开启 ETR 外部时钟模式 2 后，定时器的计数器（CNT）可以直接对输入到 ETR 引脚的外部脉冲进行计数。
+应用：频率计、转速测量（测速）、外部事件计数（如光电传感器记录通过的物品数量）。
+作为触发控制信号（Trigger Mode）
+原理：将 ETR 引脚上的信号作为控制指令，去控制定时器的运行状态。
+常见模式：
+Reset 模式：ETR 出现有效边沿时，自动重置计数器（CNT = 0）。
+Gated（门控）模式：ETR 引脚为高/低电平时定时器才计数，电平翻转则暂停计数。
+Trigger（触发启动）模式：ETR 引脚出现有效边沿时，才启动定时器工作。
+---------------
+问题一：为什么计数频率等于 72MHz/（PSC+1）？
+【逻辑解答】
+72MHz 的意思是：芯片内部的时钟源，1 秒钟会产生 72,000,000（7200万）个脉冲信号。
+预分频器（PSC）本质上就是一个“数脉冲的计数器”，它的工作是“剔除/拦截”一部分脉冲，只把剩下的脉冲放行给真正的计数器（CNT）。
+如果设置 PSC = 0：
+意思是：放行全部。每进来 1 个输入脉冲，就输出 1 个脉冲给计数器。
+1 秒钟有 7200 万个脉冲进来，就放行 7200 万个出去。
+所以计数频率 = 72MHz/（0+1）=72MHz
+如果设置 PSC = 1：
+意思是：每攒满 2 个脉冲，才放行 1 个出去（也就是二分频）。
+1 秒钟进来 7200 万个脉冲，被拦截了一半，只放行了 3600 万个。
+所以计数频率 = 
+72MHz/（1+1）=36MHz
+公式本质：主频 72MHz 是“进货总量”，分频系数 (PSC+1)是“几合一”。放行出去的频率，自然就是总数除以组合数。
+问题二：预分频（PSC）少，时钟“脉冲”密，走得快，这是什么逻辑？
+我们用**“滴水”**来理解：
+主频 72MHz：就像一个水龙头，1 秒钟滴 7200 万滴水。这水滴是非常密集的。
+预分频器（PSC）：相当于在水龙头下放了一个“小漏斗”，只有小漏斗满了，才会向下漏出一滴大水滴给你的计数器（CNT）。
+PSC 设得非常少（比如 0）：
+漏斗不用等，水龙头滴 1 滴，下面就跟着掉 1 滴。
+脉冲“密”：下面掉水滴的间隔极其短（时间间隔只有 13.8 纳秒）。
+走得快：你的计数器 CNT 瞬间就能收到大量的“水滴”，计数器的数字（0, 1, 2, 3...）疯狂往上涨，转眼就数到了几万。
+PSC 设得非常大（比如 7199）：
+漏斗必须等水龙头滴满 7200 滴水，才肯向下面漏 1 滴大水滴。
+脉冲“稀”：下面掉水滴的间隔变长了（1 秒钟只掉 10,000 滴）。
+走得慢：计数器 CNT 等半天才收到一个脉冲，数字变大得很慢。
+逻辑链条：PSC 小 不拦截/少拦截脉冲 传递给计数器的脉冲密度高（时间间隔小）  计数器数字变化极快。
+问题三：重装载（ARR）多，为什么“调节粒度更细腻”？
+“调节粒度更细腻”主要应用在 PWM 调节（比如调节 LED 亮度、电机转速、音量大小） 场景中。
+在定时器中，PWM 的占空比（亮度/速度）是由捕获/比较寄存器（CCR）和 ARR 共同决定的：
+占空比=CCR/ARR
+什么叫“粒度”？我们对比两个水龙头旋钮：
+情况 A：ARR 设得很小（比如 ARR = 10，容量只有 10）
+计数器只能从 0 数到 10。
+你能设置的 CCR 值只能是整数：0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10。
+这意味着，你调节灯光亮度时，只有 11 个档位（0%, 10%, 20%, ... 100%）。
+后果（粒度粗）：你把亮度从 5 档调到 6 档，亮度会突然从 50% 跳变到 60%，肉眼能明显感觉闪烁跳跃！你没办法把亮度调成 50.5%，因为没有小数档位。
+情况 B：ARR 设得很大（比如 ARR = 10,000，容量高达 10000）
+计数器可以从 0 一直数到 10000。
+你能设置的 CCR 值可以是：0, 1, 2, 3 ... 5000, 5001, 5002 ... 10000。
+这意味着，你有 10,001 个档位可以调节！
+后果（粒度细腻）：你可以把亮度设为 5000（50%），下一个档位设为 5001（50.01%）。
+50.00% 到 50.01% 的变化极小，肉眼根本感觉不到跳跃，灯光会像丝绸一样极其平滑地渐变（呼吸灯效果更好）。
+--------.c---------
+#include "stm32f10x.h"                  // Device header
+
+void Timer_Init(void)
+{
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2,ENABLE);
+	TIM_InternalClockConfig(TIM2);//选择内部时钟
+	
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
+	//目前无所谓，选个1分频
+	TIM_TimeBaseInitStructure.TIM_ClockDivision=TIM_CKD_DIV1;
+	/*
+	#define TIM_CounterMode_Up                 ((uint16_t)0x0000)
+	#define TIM_CounterMode_Down               ((uint16_t)0x0010)
+	#define TIM_CounterMode_CenterAligned1     ((uint16_t)0x0020)
+	#define TIM_CounterMode_CenterAligned2     ((uint16_t)0x0040)
+	#define TIM_CounterMode_CenterAligned3     ((uint16_t)0x0060)
+	*/
+	TIM_TimeBaseInitStructure.TIM_CounterMode=TIM_CounterMode_Up;
+	//ARR自动重装器的值
+	TIM_TimeBaseInitStructure.TIM_Period=10000-1;
+	//PSC预分频器的值
+	TIM_TimeBaseInitStructure.TIM_Prescaler=7200-1;
+	//重复计数器的值（高级定时器才有）
+	TIM_TimeBaseInitStructure.TIM_RepetitionCounter=0;
+	TIM_TimeBaseInit(TIM2,&TIM_TimeBaseInitStructure);//时基单元初始化
+	
+	TIM_ITConfig(TIM2,TIM_IT_Update,ENABLE );//使能中断输出信号
+	
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
+	
+	NVIC_InitTypeDef NVIC_InitStructure;
+ 	NVIC_InitStructure.NVIC_IRQChannel=TIM2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelCmd=ENABLE;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=2;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority=1;
+	NVIC_Init(&NVIC_InitStructure);
+	
+	TIM_Cmd(TIM2,ENABLE);//使能计数器的cmd
+}
+
+void TIM2_IRQHandler(void)
+{
+	if(TIM_GetITStatus(TIM2,TIM_IT_Update)==SET)
+	{
+		
+		TIM_ClearITPendingBit(TIM2,TIM_IT_Update);
+	}
+}
+
 
